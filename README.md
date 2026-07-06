@@ -2,12 +2,6 @@
 
 > Revio reviews your pull requests the way a good teammate would — with the rest of the codebase in mind — and leaves clear, inline comments automatically.
 
-![Status](https://img.shields.io/badge/status-in%20active%20development-orange)
-![Python](https://img.shields.io/badge/python-3.11+-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)
-![Postgres](https://img.shields.io/badge/PostgreSQL-pgvector-316192)
-![Redis](https://img.shields.io/badge/Redis-queue-DC382D)
-
 ---
 
 ## What is Revio?
@@ -24,15 +18,7 @@ What makes it different: most review bots look at a diff on its own and miss con
 4. It asks an LLM to review the change, using that related code as context.
 5. It posts the review as inline comments on the pull request.
 
-```mermaid
-flowchart TD
-    GH[GitHub: pull request opened] -->|signed webhook| API[Revio API<br/>check signature, queue job, reply instantly]
-    API --> Q[(Redis queue)]
-    Q --> W[Worker<br/>fetch changes, find context, review, post]
-    W <-->|find related code| DB[(PostgreSQL + pgvector)]
-    W -->|review request| LLM[LLM]
-    W -->|inline comments| GHPR[GitHub pull request]
-```
+<img width="900" height="872" alt="Screenshot 2026-07-06 110830" src="https://github.com/user-attachments/assets/bcfe22de-ad31-4b8c-a5c7-28ee00781a68" />
 
 Why the two halves? GitHub expects a reply within about 10 seconds, but a good review takes longer than that. So Revio answers instantly (the API) and does the slow work separately (the worker). If it tried to review inside that 10-second window, it would drop requests.
 
