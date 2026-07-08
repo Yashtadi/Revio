@@ -2,12 +2,6 @@
 
 > Revio reviews your pull requests the way a good teammate would — with the rest of the codebase in mind — and leaves clear, inline comments automatically.
 
-![Status](https://img.shields.io/badge/status-in%20active%20development-orange)
-![Python](https://img.shields.io/badge/python-3.11+-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)
-![Postgres](https://img.shields.io/badge/PostgreSQL-pgvector-316192)
-![Redis](https://img.shields.io/badge/Redis-queue-DC382D)
-
 ---
 
 ## What is Revio?
@@ -24,15 +18,7 @@ What makes it different: most review bots look at a diff on its own and miss con
 4. It asks an LLM to review the change, using that related code as context.
 5. It posts the review as inline comments on the pull request.
 
-```mermaid
-flowchart TD
-    GH[GitHub: pull request opened] -->|signed webhook| API[Revio API<br/>check signature, queue job, reply instantly]
-    API --> Q[(Redis queue)]
-    Q --> W[Worker<br/>fetch changes, find context, review, post]
-    W <-->|find related code| DB[(PostgreSQL + pgvector)]
-    W -->|review request| LLM[LLM]
-    W -->|inline comments| GHPR[GitHub pull request]
-```
+{}
 
 Why the two halves? GitHub expects a reply within about 10 seconds, but a good review takes longer than that. So Revio answers instantly (the API) and does the slow work separately (the worker). If it tried to review inside that 10-second window, it would drop requests.
 
@@ -45,7 +31,7 @@ Why the two halves? GitHub expects a reply within about 10 seconds, but a good r
 | Storage & search | PostgreSQL with the pgvector extension |
 | Review model | LLM with structured, validated output |
 | GitHub integration | GitHub App — webhooks + GitHub REST API |
-| Packaging & delivery | Docker Compose, GitHub Actions CI |
+| Packaging & delivery | Docker Compose, GitHub Actions (CI/CD), GitHub Container Registry |
 | Observability | Structured logging, health checks, Sentry |
 
 ## Why it's built this way
@@ -56,6 +42,10 @@ A few decisions shape the whole system. Each one is a plain trade-off:
 - **Duplicate events are ignored.** GitHub sometimes sends the same event twice. Every event has a unique ID, and Revio remembers IDs it has already handled — so a pull request never gets reviewed twice. Jobs that fail are retried with a growing delay between attempts.
 - **Related code is searched, not stuffed in whole.** Revio keeps a searchable index of the repository (code turned into vectors in pgvector). For each PR it fetches only the most relevant pieces and feeds those to the model. Sending the entire repo every time would be far too large and expensive; searching keeps it focused and cheap.
 - **The model's output is forced into a fixed shape.** LLMs can ramble or return messy text. Revio makes the model answer in a defined structure and validates it before posting, so every comment maps to a specific line in the diff instead of arriving as a wall of prose.
+
+- **Code is chunked along function and class boundaries, not fixed-size windows.** A fixed-size cut can slice a function in half, so the retrieved context reads like a fragment instead of a coherent piece of code. Chunking on syntax boundaries keeps each retrieved piece meaningful on its own.
+
+- **Deploys happen automatically on merge, not by hand.** Once tests pass, the pipeline builds a versioned image and pushes it to the running host itself — removing the "forgot to deploy" gap between merging code and it actually being live. Each image is tagged with its commit SHA, so rolling back is just redeploying the previous tag.
 
 ## Data model
 
@@ -102,8 +92,12 @@ A short pre-release checklist:
 - [ ] Database migrations applied
 - [ ] Environment variables set on the host (secrets, DB/Redis URLs, model key)
 - [ ] GitHub App webhook URL points at the live instance
+- [ ] CI/CD pipeline building and deploying on merge to `main`
 - [ ] Smoke test: open a test PR and confirm a review is posted
 - [ ] Rollback plan: redeploy the previous image if error rates spike
+
+## CI/CD pipeline
+On every push, GitHub Actions lints and runs tests. On merge to main, it also builds a Docker image tagged with the commit SHA, pushes it to GitHub Container Registry, and deploys it to the live host. If something goes wrong after a deploy, rolling back means redeploying the previous SHA — no rebuild needed.
 
 ## Roadmap
 
@@ -112,10 +106,12 @@ A short pre-release checklist:
 - [ ] Redis queue + worker; instant reply, background review
 - [ ] Duplicate protection and retries with backoff
 - [ ] Structured, validated output posted as inline comments
-- [ ] Repository indexing (split code → embed → store in pgvector)
+- [ ] Repository indexing — chunk code along function/class boundaries, embed, store in pgvector
+- [ ] Incremental re-indexing (only changed files) on each push
 - [ ] Context-aware reviews using search (RAG)
 - [ ] Evaluation: compare review quality and speed, with vs. without context
-- [ ] CI (lint, tests, image build) and observability (logging, health checks, Sentry)
+- [ ] CI/CD pipeline — lint, test, build versioned image, deploy on merge to main
+- [ ] Observability: structured logging, health checks, Sentry
 - [ ] *(Stretch)* Split the reviewer into focused agents (security, architecture, summary)
 
 ## Project status
