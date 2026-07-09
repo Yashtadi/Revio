@@ -7,5 +7,9 @@ class Settings(BaseSettings):
     app_name: str = "Revio"
     environment: str = "development"
 
+    github_app_id: str = ""
+    github_webhook_secret: str = ""
+    github_app_private_key: str = ""
+
 
 settings = Settings()
