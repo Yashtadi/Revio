@@ -18,11 +18,8 @@ What makes it different: most review bots look at a diff on its own and miss con
 4. It asks an LLM to review the change, using that related code as context.
 5. It posts the review as inline comments on the pull request.
 
-<<<<<<< HEAD
-{}
-=======
+
 <img width="900" height="872" alt="Screenshot 2026-07-06 110830" src="https://github.com/user-attachments/assets/bcfe22de-ad31-4b8c-a5c7-28ee00781a68" />
->>>>>>> 580508eaeb1a5e923401d76dec6402bed8ec8e8d
 
 Why the two halves? GitHub expects a reply within about 10 seconds, but a good review takes longer than that. So Revio answers instantly (the API) and does the slow work separately (the worker). If it tried to review inside that 10-second window, it would drop requests.
 
